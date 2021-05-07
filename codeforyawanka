@@ -1,0 +1,100 @@
+//Made by CYPHER
+//The following code is of public domain.
+//Feel free to modify according to your needs.
+
+
+#include <SD.h>
+
+const int chipSelect = 4;
+
+File dataFile;
+
+
+float sample1=0; // for voltage
+float sample2=0; // for current
+float voltage=0.0;
+float val; // current callibration
+float actualval; 
+float amps=0.0;
+float totamps=0.0; 
+float avgamps=0.0;
+float amphr=0.0;
+float watt=0.0;
+float energy=0.0; 
+
+void setup()
+{
+
+  Serial.begin(9600);
+   while (!Serial) {
+    ; 
+  }
+
+
+  Serial.print("Initializing SD card...");
+
+  pinMode(SS, OUTPUT);
+
+  if (!SD.begin(chipSelect)) {
+    Serial.println("Card failed, or not present");
+ 
+    while (1) ;
+  }
+  Serial.println("card initialized.");
+  
+
+  dataFile = SD.open("energy.txt", FILE_WRITE);
+  if (! dataFile) {
+    Serial.println("error opening energy.txt");
+
+    while (1) ;
+  }
+}
+
+void loop()
+
+{
+   
+ long milisec = millis(); // calculate time in milisec
+ long time=milisec/1000; // convert time to sec
+
+  for(int i=0;i<150;i++)
+  {
+    sample1+=analogRead(A2);  //read the voltage from the sensor
+    sample2+=analogRead(A3); //read the current from sensor
+    delay(2);
+  }
+   sample1=sample1/150; 
+   sample2=sample2/150;
+   voltage=4.669*2*sample1/1000; 
+    
+ val =(5.0*sample2)/1024.0; 
+ actualval =val-2.5; // offset voltage is 2.5v 
+ amps =actualval*10;// 10 is multiplied as 100mv/A ( from data sheet )
+ totamps=totamps+amps; // total amperes 
+ avgamps=totamps/time; // average amperes
+ amphr=(avgamps*time);  // ampere hour
+ watt =voltage*amps;    // power=voltage*current
+ energy=(watt*time)/3600;      // energy = power*timein Watt-sec ///again convert to Watt-Hr by dividing 3600sec
+ 
+String dataString = "";
+int parameter[4]={voltage,amps,watt,energy}; // here parameters are power,energy,watt-hour and current
+
+  for (int i = 0; i < 4; i++) 
+  {
+    int sensor = parameter[i];
+    dataString += String(sensor);
+    if (i < 4) 
+    {
+      dataString += ","; 
+    }
+  }
+
+  dataFile.println(dataString);
+  Serial.println(dataString);
+
+  dataFile.flush();
+  
+  // Take 1 measurement every 500 milliseconds
+  delay(500);
+}
